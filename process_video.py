@@ -109,7 +109,7 @@ class video_obj:
         roi = np.array(scan_window[0:4]) 
         roi[0:2] *= self.frame_width
         roi[2:4] *= self.frame_heigth
-        roi = roi.astype(np.int)
+        roi = roi.astype(int)
         self.set_grid(roi, scan_window[4])
 
 
@@ -163,21 +163,23 @@ class video_obj:
             dt, t0 = t1-t0, t1
 
             if video_output:
-                # try:
-                for p in self.grid:
-                    cv2.circle(frame, tuple(p[0]), 2, (0, 255, 0), -1)
-                start_point = (frame_width//2, frame_heigth//k-10)
-                end_point = (frame_width//2+int(pan*50), frame_heigth-20)
-                color = (255,150,150)
-                thickness = 2
-                cv2.rectangle(frame, start_point, end_point, color, thickness)
-                draw_str(frame, (20, 20), 'frame nr: {0:d}'.format(frame_nr))
-                draw_str(frame, (20, 40), 'fps: {0:0.0f}'.format(1e6/dt.microseconds))
-                draw_str(frame, (20, 60), 'progress: {0:0.1f}'.format(frame_nr * 100.0 / self.frame_count))
-                cv2.imshow('pan_x', frame)
-                if 0xFF & cv2.waitKey(1) == 27 : break
-                # except:
-                #     print('frame processing error on frame:',frame_nr)
+                try:
+                    for p in self.grid:
+                        [ox, oy] = p[0]
+                        cv2.circle(frame, (int(ox), int(oy)), 3, (0, 255, 0), 1)
+                    start_point = (frame_width//2, frame_heigth//k-10)
+                    end_point = (frame_width//2-int(pan*25), frame_heigth-20)
+                    color = (255,150,150)
+                    thickness = 2
+                    cv2.rectangle(frame, start_point, end_point, color, thickness)
+                    draw_str(frame, (20, 20), 'frame nr: {0:d}'.format(frame_nr))
+                    draw_str(frame, (20, 40), 'fps: {0:0.0f}'.format(1e6/dt.microseconds))
+                    draw_str(frame, (20, 60), 'progress: {0:0.1f}'.format(frame_nr * 100.0 / self.frame_count))
+                    cv2.imshow('pan_x', frame)
+                    if 0xFF & cv2.waitKey(1) == 27 : break #Esc
+                except Exception as e:
+                    print('frame processing error on frame:',frame_nr)
+                    print(e)
 
             pan_x.append(pan)
 

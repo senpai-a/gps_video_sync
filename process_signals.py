@@ -11,24 +11,27 @@
 #!/usr/bin/env python
 
 import numpy as np
+import matplotlib.pyplot as plt
 
-def align_signals(signal_1, signal_2, choose_peak=False):
+def normalize(v):
+    return (v-np.average(v))/(np.max(v)-np.min(v))
+
+def align_signals(vid_yaw, gps_yaw, choose_peak=False):
 
     #calculate the correlation between the two signals
-    corr =  np.correlate(signal_2,signal_1,'same')
+    corr =  np.correlate(gps_yaw,vid_yaw,'same')
     #calc how much to shift signal 1 to lineup with signal 2
-    frame_shift = corr.argmax() - len(signal_1) / 2
+    frame_shift = corr.argmax() - len(vid_yaw) / 2
 
     #if interaction is required a graph is created where peaks can be selected
     if choose_peak:
-        import matplotlib.pyplot as plt
         class plot_obj:
 
             # define what should happen when a point is picked
             # note* all variables used are not in local dict but taken from global dict
             def onpick(self, event):
                 coor = event.artist.get_xdata()[0]
-                self.frame_shift  = coor - min(len(signal_1), len(signal_2))/2
+                self.frame_shift  = coor - min(len(vid_yaw), len(gps_yaw))/2
                 self.update()
 
             def __init__(self):
@@ -51,13 +54,15 @@ def align_signals(signal_1, signal_2, choose_peak=False):
                 self.ax = plt.subplot(212)
 
                 plt.title('GPS and Video Data')
-                plt.plot(signal_2/20,'r')
-                plt.plot(np.arange(len(signal_1)) + frame_shift, signal_1,'k')
+                plt.plot(normalize(gps_yaw),'r',label='gps')
+                plt.plot(np.arange(len(vid_yaw)) + frame_shift, normalize(vid_yaw),'k',label='vid')
+                plt.legend()
                 plt.show()
 
             def update(self):
-                self.ax.lines.pop(1)
-                plt.plot(np.arange(len(signal_1)) + self.frame_shift, signal_1,'k')
+                self.ax.lines[1].remove()
+                plt.plot(np.arange(len(vid_yaw)) + self.frame_shift, normalize(vid_yaw),'k',label='vid')
+                plt.legend()
                 plt.show()
 
         graph = plot_obj()
@@ -130,12 +135,12 @@ def peakdet(v, delta, x = None):
     if delta <= 0:
         sys.exit('Input argument delta must be positive')
 
-    mn, mx = np.Inf, -np.Inf
-    mnpos, mxpos = np.NaN, np.NaN
+    mn, mx = np.inf, -np.inf
+    mnpos, mxpos = np.nan, np.nan
 
     lookformax = True
 
-    for i in xrange(len(v)):
+    for i in range(len(v)):
         this = v[i]
         if this > mx:
             mx = this
@@ -164,14 +169,13 @@ def process_gps(GPS_Data):
     GPS_Data = gps_data_cleanup(GPS_Data)
 
     #Data from GPS log
-    gps_time = GPS_Data[1]
-    gps_speed = GPS_Data[4]
-    gps_heading = GPS_Data[5]
-
+    gps_time = GPS_Data[:,1]
+    gps_speed = GPS_Data[:,4]
+    gps_heading = GPS_Data[:,5]
     #calculate yaw_rate from heading data
     GPS_yaw_rate = get_angular_speed((gps_heading, gps_time))
     #discard data where speed is below treshold
-    GPS_yaw_rate[gps_speed[1:]<1] = 0
+    #GPS_yaw_rate[gps_speed[1:]<1] = 0
 
     #resample data to frame rate
     GPS_yaw_rate = resample((gps_time[1:], GPS_yaw_rate), 1001. / 30 / 1000)
@@ -194,12 +198,12 @@ def resample(coor, rate):
 
 
 def gps_data_cleanup(GPS_Data):
-
     #sort on timestamp and remove duplicates
-    gps_time = GPS_Data[1]
+    gps_time = GPS_Data[:,1]
     index1 = np.argsort(gps_time)
-    index2 = np.unique(gps_time[index1], return_index=True)[1]
-    GPS_Data = GPS_Data.T[index1][index2].T
+    GPS_Data = GPS_Data[index1,:]
+    index2 = np.unique(GPS_Data[:,1], return_index=True)[1]
+    GPS_Data = GPS_Data[index2,:]
     return GPS_Data
 
 def convert_num(s): #convert strings to numbers

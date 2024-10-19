@@ -39,25 +39,22 @@ def loadfile_csv(file_name, type, raw=False):
                 elif i==10:
                     Header = line.strip().split(',')
                     for x in Header: Race_Chrono_Data[x] = []
-                else:
+                elif i>13:
                     key = line.strip().split(',')
-                    if not key[18]:
-                        for i, x in enumerate(key):
-                            Race_Chrono_Data[Header[i]].append(ps.convert_num(x))
-
+                    for i, x in enumerate(key):
+                        Race_Chrono_Data[Header[i]].append(ps.convert_num(x))
+        print("Parsed headers:", Header)
         if raw:
             return Race_Chrono_Data
         else:
-            Vbox_Data = []
-            Vbox_Data.append(Race_Chrono_Data['Locked satellites'])
-            Vbox_Data.append(Race_Chrono_Data['Timestamp (s)'])
-            Vbox_Data.append(Race_Chrono_Data['Latitude (deg)'])
-            Vbox_Data.append(Race_Chrono_Data['Longitude (deg)'])
-            Vbox_Data.append(Race_Chrono_Data['Speed (kph)'])
-            Vbox_Data.append(Race_Chrono_Data['Bearing (deg)'])
-            Vbox_Data = np.array(Vbox_Data)
-            Vbox_Data[2] *= 60
-            Vbox_Data[3] *= -60
+            Vbox_Data = np.genfromtxt(file_name, skip_header=13, delimiter=',')
+            idx = []
+            for h in ['satellites', 'elapsed_time', 'latitude', 'longitude', 'speed', 'bearing']:
+                idx.append(Header.index(h))
+            Vbox_Data = Vbox_Data[:,idx]
+            Vbox_Data[:,2] *= 60
+            Vbox_Data[:,3] *= -60
+            Vbox_Data[:,0] = 12.
 
             return Vbox_Data, Race_Chrono_Data['Info']
 
@@ -175,7 +172,7 @@ def write_vbox(file_name, GPS_Data, Info, vbox_prefix, video_params, time_zone=0
         #write [laptiming]
 ##        f.write('\n[laptiming]\n')
 
-        video_data = np.zeros((len(GPS_Data[1]), 2))
+        video_data = np.zeros((len(GPS_Data[:,1]), 2))
         video_data[:,1] -= 1
 
         #write [session data] and prepare avifileindex and time
@@ -184,12 +181,12 @@ def write_vbox(file_name, GPS_Data, Info, vbox_prefix, video_params, time_zone=0
             f.write('Processed file({:04d}, {}s) : {}\n'.format(i+1, avi_length, filename_video))
             f.write('Time Delay: {}\n'.format(ps.convert_time(abs(delay), 1)))
 
-            starttime_video = GPS_Data[1][0] + delay
+            starttime_video = GPS_Data[:,1][0] + delay
             endtime_video = starttime_video + avi_length
-            ind = np.logical_and( GPS_Data[1]>starttime_video , GPS_Data[1]<endtime_video)
+            ind = np.logical_and( GPS_Data[:,1]>starttime_video , GPS_Data[1]<endtime_video)
 
             video_data[ind,0] = i+1
-            video_data[ind,1] = (GPS_Data[1][ind] - starttime_video) * 1000
+            video_data[ind,1] = (GPS_Data[:,1][ind] - starttime_video) * 1000
 
 
         #write [column names]
